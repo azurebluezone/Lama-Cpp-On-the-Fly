@@ -77,7 +77,12 @@ for field in model protocol client mcp_tool_executed duration_ms prompt_tokens c
 done
 ok "per-transport and per-model logs carry model, protocol, client, MCP, duration and tokens"
 
-# ---------- 6. the code itself is green ----------
+# ---------- 6. no invisible watermark in the published files ----------
+npm test -- test/watermark.test.ts >"$WORK/watermark.log" 2>&1 || {
+  tail -20 "$WORK/watermark.log" >&2; fail "an invisible watermark character is present"; }
+ok "no invisible watermark characters in the repository"
+
+# ---------- 7. the code itself is green ----------
 npm run typecheck >"$WORK/typecheck.log" 2>&1 || { tail -20 "$WORK/typecheck.log" >&2; fail "typecheck"; }
 npm test >"$WORK/test.log" 2>&1 || { tail -30 "$WORK/test.log" >&2; fail "tests"; }
 ok "typecheck and tests pass"
