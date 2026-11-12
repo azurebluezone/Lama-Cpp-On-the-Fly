@@ -60,6 +60,9 @@ ANSWER="$(curl -sS -m 180 -X POST "$GATEWAY/v1/chat/completions" \
   -H 'content-type: application/json' -H "authorization: Bearer $TOKEN" \
   -d "{\"model\":\"deepseek-v4-pro\",\"max_tokens\":48,\"temperature\":0,\"messages\":[{\"role\":\"user\",\"content\":\"Say hello\"}],\"grammar\":\"$GRAMMAR\"}" 2>/dev/null)"
 [ -n "$ANSWER" ] || fail "the grammar-constrained request returned nothing"
+# A reasoning model puts its answer in reasoning_content and leaves content
+# empty. Both are checked, so the grammar is judged on the text that was
+# actually generated.
 CONTENT="$(sed -n 's/.*"content":"\([^"]*\)".*/\1/p' <<<"$ANSWER" | head -1)"
 REASONING="$(sed -n 's/.*"reasoning_content":"\([^"]*\)".*/\1/p' <<<"$ANSWER" | head -1)"
 TEXT="$CONTENT$REASONING"
