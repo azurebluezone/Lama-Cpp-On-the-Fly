@@ -1,0 +1,26 @@
+{
+  "name": "lama-clean",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Lama-Cpp-On-the-Fly: a clean TypeScript lifecycle manager for a stock llama.cpp server: install, service, SQLite registry, transports, native GBNF grammar, admin API.",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node src/main.ts serve",
+    "setup": "node src/main.ts setup",
+    "doctor": "node src/main.ts doctor",
+    "install:llama": "node src/main.ts install",
+    "install:all": "node scripts/install.mjs",
+    "build:dist": "node scripts/build-dist.mjs",
+    "mcp": "node src/mcp/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.ts",
+    "check": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^7.0.2"
+  }
+}

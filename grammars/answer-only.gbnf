@@ -1,0 +1,2 @@
+# A single lowercase word, e.g. "hello".
+root ::= [a-z]+

@@ -1,0 +1,20 @@
+{
+  "system_identity": {
+    "name": "lama",
+    "version": "0.2.0",
+    "tagline": "Stock llama.cpp, sovereign locally.",
+    "protocol": "SSI-Core/1",
+    "branding": {
+      "owner": "Sahon Srabon",
+      "organization": "Developer Zone",
+      "address": "235 South Pirarbag, Amtala Bazar, Mirpur - 60 feet",
+      "location": "Dhaka, Bangladesh"
+    },
+    "contact": {
+      "phone": "+880 1323-626282",
+      "email": "infi@zombiecoder.my.id",
+      "website": "https://zombiecoder.my.id/"
+    },
+    "license": "Proprietary - Local Freedom Protocol"
+  }
+}

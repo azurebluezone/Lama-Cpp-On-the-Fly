@@ -1,0 +1,60 @@
+{
+	# Local-only TLS edge: the certificate is the repo's self-signed
+	# localhost pair, so Caddy must not try ACME or HTTP->HTTPS redirects.
+	auto_https off
+
+	# The system Caddy already owns the admin API on 127.0.0.1:2019.
+	admin off
+
+	# Server limits (Caddyfile global option `servers`).
+	#   max_header_size  - cap request/response header bytes.
+	#   timeouts         - SSE responses stream forever, so write/read_body
+	#                      timeouts are disabled (0); header and idle
+	#                      timeouts stay bounded so dead sockets are reaped.
+	servers {
+		max_header_size 32KB
+		timeouts {
+			read_header 10s
+			read_body 0
+			write 0
+			write_idle 5m
+			idle 5m
+		}
+	}
+}
+
+# TLS edge -> single gateway listener (API + admin + SSE).
+# The gateway fans out to the engine over loopback HTTP/UDS; there is no
+# second admin port and no second process.
+{$LAMA_SITE:127.0.0.1}:{$LAMA_EDGE_PORT:9931} {
+	tls {$LAMA_ROOT}/certs/localhost-cert.pem {$LAMA_ROOT}/certs/localhost-key.pem
+
+	# Request size cap: audio/model uploads are allowed up to 64MB, larger
+	# bodies are rejected with 413 instead of filling memory.
+	request_body {
+		max_size 64MB
+	}
+
+	# Response headers the client expects from the edge.
+	header {
+		# Never let an upstream set a second Content-Type for a JSON API.
+		X-Content-Type-Options nosniff
+		# Admin/API answers are per-request state; do not let a proxy cache them.
+		Cache-Control "no-store"
+		# Do not advertise the proxy implementation.
+		-Server
+	}
+
+	reverse_proxy 127.0.0.1:5252 {
+		# SSE must reach the client token by token.
+		flush_interval -1
+		# Keep the original host (including port) and the real client address.
+		header_up Host {http.request.host}
+		header_up X-Real-IP {remote_host}
+		# Long-lived streams: no transport read/write timeout.
+		transport http {
+			read_timeout 0
+			write_timeout 0
+		}
+	}
+}

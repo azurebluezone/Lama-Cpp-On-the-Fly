@@ -1,0 +1,38 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "lama/deepseek-v4-pro",
+  "providers": {
+    "lama": {
+      "name": "Lama Clean",
+      "package": "@opencode/ai/providers/openai-compatible",
+      "settings": {
+        "baseURL": "http://127.0.0.1:9932/v1"
+      },
+      "headers": {
+        "x-lama-client": "opencode"
+      },
+      "models": {
+        "deepseek-v4-pro": {
+          "name": "deepseek-v4-pro",
+          "modelID": "deepseek-v4-pro",
+          "capabilities": {
+            "tools": true,
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "compatibility": {
+            "maxTokensField": "max_tokens"
+          },
+          "limit": {
+            "context": 32768,
+            "output": 5096
+          }
+        }
+      }
+    }
+  }
+}

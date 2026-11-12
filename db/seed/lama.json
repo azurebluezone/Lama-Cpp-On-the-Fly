@@ -1,0 +1,265 @@
+{
+  "schema": "lama.seed/v1",
+  "identity": "identity.json",
+  "providers": [
+    {
+      "id": "llamacpp",
+      "name": "llama.cpp (stock)",
+      "kind": "llamacpp",
+      "base_url": "http://127.0.0.1:9933",
+      "metadata": {
+        "role": "engine-and-manager",
+        "owner": "Sahon Srabon",
+        "license": "MIT (llama.cpp)",
+        "source": "https://github.com/ggml-org/llama.cpp",
+        "note": "One OpenAI-compatible surface: gateway http://127.0.0.1:5252 proxies /v1 to the stock engine on 127.0.0.1:9932 (UDS /tmp/llama-1000/llama.sock). TLS edge: https://127.0.0.1:9931 via Caddy."
+      }
+    }
+  ],
+  "transports": [
+    {
+      "id": "http",
+      "name": "HTTP loopback",
+      "protocol": "http",
+      "host": "127.0.0.1",
+      "port": 9932,
+      "metadata": {
+        "scope": "loopback",
+        "gateway": "Direct engine: http://127.0.0.1:9932. Admin API: 127.0.0.1:9933. Gateway: http://127.0.0.1:5252 (API, /admin, SSE). TLS edge: https://127.0.0.1:9931 via Caddy.",
+        "env_to_engine": false
+      }
+    },
+    {
+      "id": "uds",
+      "name": "Unix domain socket",
+      "protocol": "uds",
+      "socket_path": "/tmp/llama-1000/llama.sock",
+      "metadata": {
+        "scope": "loopback",
+        "dir_mode": "0700",
+        "socket_mode": "0660",
+        "gateway": "Symlink the engine socket into the gateway folder (/home/sahon/zclama/gateway/llama.sock); never pass this path to llama.cpp as an environment variable.",
+        "env_to_engine": false
+      }
+    },
+    {
+      "id": "https",
+      "name": "HTTPS loopback (engine-native TLS)",
+      "protocol": "https",
+      "host": "127.0.0.1",
+      "port": 9932,
+      "metadata": {
+        "scope": "loopback",
+        "requires": "LAMA_TLS=1 and a stock OpenSSL build (engine-native TLS listens on LAMA_TLS_PORT=9931); with LAMA_TLS=0 use the Caddy edge https://127.0.0.1:9931",
+        "env_to_engine": false,
+        "tls_port": 9931
+      }
+    }
+  ],
+  "mcp_servers": [
+    {
+      "id": "lama-tools",
+      "name": "lama-tools",
+      "transport": "stdio",
+      "command": "node",
+      "args": [
+        "src/mcp/server.ts"
+      ],
+      "env": {
+        "LAMA_WORKSPACE": "/home/sahon/zclama/workspace"
+      },
+      "cwd": "/home/sahon/zclama",
+      "timeout_ms": 30000,
+      "enabled": 1,
+      "metadata": {
+        "tools": [
+          "read_file",
+          "write_file",
+          "list_dir",
+          "run_shell",
+          "http_fetch"
+        ],
+        "scope": "workspace",
+        "note": "llama.cpp accepts stdio MCP only; HTTP/SSE rows stay orchestrator-side."
+      }
+    }
+  ],
+  "documents": [
+    {
+      "id": "openai-http",
+      "slug": "openai-http",
+      "title": "OpenAI chat completions over HTTP",
+      "transport_id": "http",
+      "body": "curl -sS http://127.0.0.1:9933/v1/chat/completions -H 'content-type: application/json' -d '{\"model\":\"MODEL_ID\",\"messages\":[{\"role\":\"user\",\"content\":\"hello\"}],\"max_tokens\":64}'",
+      "metadata": {
+        "surface": "manager",
+        "protocol": "openai",
+        "auth": "loopback or LAMA_API_KEY",
+        "note": "manager proxy; adds identity headers and optional LAMA_API_KEY auth"
+      }
+    },
+    {
+      "id": "anthropic-http",
+      "slug": "anthropic-http",
+      "title": "Anthropic Messages over HTTP",
+      "transport_id": "http",
+      "body": "curl -sS http://127.0.0.1:9933/v1/messages -H 'content-type: application/json' -d '{\"model\":\"MODEL_ID\",\"max_tokens\":64,\"messages\":[{\"role\":\"user\",\"content\":\"hello\"}]}'",
+      "metadata": {
+        "surface": "manager",
+        "protocol": "anthropic",
+        "auth": "loopback or LAMA_API_KEY"
+      }
+    },
+    {
+      "id": "openai-uds",
+      "slug": "openai-uds",
+      "title": "OpenAI chat completions over UDS",
+      "transport_id": "uds",
+      "body": "curl -sS --unix-socket /tmp/llama-1000/llama.sock http://localhost/v1/chat/completions -H 'content-type: application/json' -d '{\"model\":\"MODEL_ID\",\"messages\":[{\"role\":\"user\",\"content\":\"hello\"}],\"max_tokens\":64}'",
+      "metadata": {
+        "surface": "engine",
+        "protocol": "openai",
+        "socket_mode": "0660"
+      }
+    },
+    {
+      "id": "anthropic-uds",
+      "slug": "anthropic-uds",
+      "title": "Anthropic Messages over UDS",
+      "transport_id": "uds",
+      "body": "curl -sS --unix-socket /tmp/llama-1000/llama.sock http://localhost/v1/messages -H 'content-type: application/json' -d '{\"model\":\"MODEL_ID\",\"max_tokens\":64,\"messages\":[{\"role\":\"user\",\"content\":\"hello\"}]}'",
+      "metadata": {
+        "surface": "engine",
+        "protocol": "anthropic",
+        "socket_mode": "0660"
+      }
+    },
+    {
+      "id": "gateway",
+      "slug": "gateway",
+      "title": "Gateway connection on :5252",
+      "transport_id": "http",
+      "body": "Gateway data-plane provider: http://127.0.0.1:9931 (stock engine). Control plane: http://127.0.0.1:9933 (admin API, identity headers, /v1 proxy). Point the gateway at the engine so chat keeps working when the admin is stopped; model id seen by clients is llamacpp/<alias>. If LAMA_ENGINE_API_KEY is set, register that env var in the gateway as api_key_env.",
+      "metadata": {
+        "surface": "gateway",
+        "port": 5252,
+        "provider_kind": "llamacpp"
+      }
+    }
+  ],
+  "models": [
+    {
+      "id": "qwen2-5-0-5b-instruct-q4-k-m",
+      "name": "Qwen2.5-0.5B-Instruct-Q4_K_M",
+      "model_id": "qwen2.5-0.5b",
+      "file": "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
+      "context": 8192,
+      "max_tokens": 1024,
+      "temperature": 0.7,
+      "quant": "Q4_K_M",
+      "load_mode": "auto",
+      "ttl_hours": 4,
+      "metadata": {
+        "family": "qwen2.5",
+        "parameters": "0.5B",
+        "license": "Apache-2.0",
+        "chat_template_builtin": "chatml",
+        "capabilities": [
+          "completion"
+        ],
+        "tool_reliability": "low — use the JSON parser fallback, never assume tool calls"
+      }
+    },
+    {
+      "id": "qwen3-5-4b-ud-iq3-xxs",
+      "name": "Qwen3.5-4B-UD-IQ3_XXS",
+      "model_id": "qwen3.5-4b",
+      "file": "Qwen3.5-4B-UD-IQ3_XXS.gguf",
+      "context": 8192,
+      "max_tokens": 2048,
+      "temperature": 0.7,
+      "quant": "IQ3_XXS",
+      "load_mode": "auto",
+      "ttl_hours": 4,
+      "metadata": {
+        "family": "qwen3.5",
+        "parameters": "4B",
+        "capabilities": [
+          "completion"
+        ],
+        "tool_reliability": "unknown — verify with the parser before trusting"
+      }
+    },
+    {
+      "id": "huihui-qwen3-1-7b-abliterated-v2-q4-k-m",
+      "name": "Huihui-Qwen3-1.7B-abliterated-v2-Q4_K_M",
+      "model_id": "qwen3-1.7b-abliterated",
+      "file": "Huihui-Qwen3-1.7B-abliterated-v2.Q4_K_M.gguf",
+      "context": 8192,
+      "max_tokens": 2048,
+      "temperature": 0.7,
+      "quant": "Q4_K_M",
+      "load_mode": "mmap",
+      "ttl_hours": 4,
+      "metadata": {
+        "family": "qwen3",
+        "parameters": "1.7B",
+        "license": "Apache-2.0",
+        "source": "https://huggingface.co/mradermacher/Huihui-Qwen3-1.7B-abliterated-v2-GGUF",
+        "base_model": "Qwen/Qwen3-1.7B",
+        "sha256": "7adf2422ea65686ad6a5c604d109d6886207e181b012392b400be44bcb0e5f8b",
+        "chat_template_builtin": "chatml",
+        "uncensored": true,
+        "capabilities": [
+          "completion"
+        ],
+        "tool_reliability": "unknown — verify with the parser before trusting"
+      }
+    },
+    {
+      "id": "deepseek-v4-pro",
+      "name": "DeepSeek-V4-Pro (Qwen3.5 4B)",
+      "model_id": "deepseek-v4-pro",
+      "file": "DeepSeek-V4-Pro.gguf",
+      "context": 4096,
+      "max_tokens": 1024,
+      "temperature": 0.2,
+      "quant": "Q2_K",
+      "load_mode": "mmap",
+      "ttl_hours": 4,
+      "metadata": {
+        "family": "qwen3_5",
+        "parameters": "4B",
+        "license": "apache-2.0",
+        "source": "https://huggingface.co/mradermacher/DeepSeek-V4-Pro-Qwen3.5-4B-GGUF",
+        "base_model": "Jackrong/DeepSeek-V4-Pro-Qwen3.5-4B",
+        "sha256": "21212f005b24872c746283bba925827517cba00c42d76cae7eeb8b1b118d1e44",
+        "capabilities": [
+          "completion"
+        ],
+        "tool_reliability": "unknown — verify with the parser before trusting"
+      }
+    },
+    {
+      "id": "qwen2-5-vl-3b-instruct-q2-k",
+      "name": "Qwen2.5-VL-3B-Instruct-Q2_K",
+      "model_id": "qwen2-5-vl-3b-instruct-q2-k",
+      "file": "Qwen2.5-VL-3B-Instruct-Q2_K.gguf",
+      "context": 8192,
+      "max_tokens": 2048,
+      "temperature": 0.7,
+      "quant": "Q2_K",
+      "load_mode": "auto",
+      "ttl_hours": 4,
+      "metadata": {
+        "family": "qwen2.5-vl",
+        "parameters": "3B",
+        "capabilities": [
+          "completion",
+          "vision"
+        ],
+        "tool_reliability": "unknown — verify with the parser before trusting"
+      }
+    }
+  ]
+}

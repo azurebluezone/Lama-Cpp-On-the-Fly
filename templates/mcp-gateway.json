@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "zombie-gateway": {
+      "command": "node",
+      "args": ["{{GATEWAY_MCP_SCRIPT}}"],
+      "env": { "GATEWAY_BASE_URL": "{{GATEWAY_BASE_URL}}" },
+      "timeout_ms": 120000
+    }
+  }
+}
