@@ -52,7 +52,9 @@ test("a tunables-only env file derives every path from the project root", () => 
     assert.equal(cfg.gatewayPort, 5252);
     assert.equal(cfg.gatewayEngine, "uds");
     assert.equal(cfg.gatewayUdsPath, path.join(cfg.runDir, "gateway.sock"));
-    assert.equal(cfg.udsPath, path.join(os.tmpdir(), `llama-${process.getuid?.() ?? "user"}`, "llama.sock"));
+    // The socket folder carries the product name: several local stacks can share one
+    // account, and one socket path between them breaks the other stack's KV cache.
+    assert.equal(cfg.udsPath, path.join(os.tmpdir(), `lama-${process.getuid?.() ?? "user"}`, "llama.sock"));
     assert.equal(cfg.llamaBin, "", "no hardcoded binary path; resolveBinary finds it");
   });
 });

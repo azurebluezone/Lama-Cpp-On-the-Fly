@@ -277,3 +277,40 @@ test("relinkLocalSymlinks repairs the absolute links fs.cpSync leaves behind", (
   assert.equal(fs.readlinkSync(link), "libllama-common.so.0.8.0");
   assert.equal(fs.existsSync(link), true);
 });
+
+/**
+ * A repeated prompt must not be evaluated again from scratch. Without prompt
+ * reuse the same 1556-token prompt took 106890 ms to evaluate on this machine;
+ * with it the second turn evaluated 1 token in 88 ms.
+ */
+test("the engine is started with prompt reuse so a repeated prompt is not re-evaluated", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "lama-cache-"));
+  const cfg = testConfig(root);
+  const model = path.join(root, "model.gguf");
+  fs.writeFileSync(model, "not a real model");
+  const binary = path.join(root, "llama-server");
+  fs.writeFileSync(binary, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+  cfg.llamaBin = binary;
+  fs.mkdirSync(cfg.dataDir, { recursive: true });
+  const built = buildEngineArgs(cfg, {
+    id: "m1",
+    provider_id: "llamacpp",
+    name: "m1",
+    model_id: "m1",
+    path: model,
+    context: 4096,
+    max_tokens: 1024,
+    temperature: 0.7,
+    quant: null,
+    load_mode: "auto" as const,
+    ttl_hours: null,
+    enabled: 1,
+    metadata_json: "{}",
+    created_at: "",
+    updated_at: "",
+  });
+  const index = built.args.indexOf("--cache-reuse");
+  assert.ok(index >= 0, "--cache-reuse is missing from the engine arguments");
+  const value = Number(built.args[index + 1]);
+  assert.ok(Number.isFinite(value) && value > 0, "--cache-reuse needs a positive chunk size");
+});

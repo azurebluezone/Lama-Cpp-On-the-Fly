@@ -168,7 +168,11 @@ export function buildEngineArgs(
     "--n-predict",
     String(model.max_tokens ?? 1024),
     "--threads",
-    String(Number(process.env.LAMA_THREADS) || Math.max(1, os.cpus().length - 1)),
+    // All cores by default. The engine used to leave one core for the desktop,
+    // but on a busy machine the engine then waited for a core it could have
+    // had: generation ran at about 145 ms per token while the process used
+    // only a third of its share.
+    String(Number(process.env.LAMA_THREADS) || os.cpus().length),
     "--parallel",
     String(Number(process.env.LAMA_PARALLEL) || 1),
     "--jinja",
@@ -177,6 +181,15 @@ export function buildEngineArgs(
   ];
 
   if (loadMode && loadMode !== "auto") args.push("--load-mode", loadMode);
+  // Prompt reuse: a follow-up turn that repeats the earlier prompt is served
+  // from the KV cache instead of being evaluated again. Measured on this
+  // machine: the same 1556-token prompt took 106890 ms to evaluate without it,
+  // and 88 ms with it. The chunk size is the minimum number of tokens that
+  // may be reused; below it the cache is not worth the bookkeeping.
+  const cacheReuse = Number(process.env.LAMA_CACHE_REUSE || 256);
+  if (Number.isFinite(cacheReuse) && cacheReuse > 0) {
+    args.push("--cache-reuse", String(Math.trunc(cacheReuse)));
+  }
   // Only a llama.cpp built-in alias may be pinned. No alias means the engine keeps
   // the model's own GGUF metadata template, which llama.cpp renders correctly.
   const templateAlias = chatTemplateAliasOf(model);

@@ -161,13 +161,17 @@ export function loadConfig(): Config {
   // derived from the project root, and the socket lives in the OS temp dir of this user.
   // Windows has no unix sockets, so an empty value disables the UDS transport there.
   const udsOverride = env("LAMA_UDS_SOCK");
+  // The socket folder carries the product name, not only the uid. Several
+  // local stacks can run under one account, and two of them sharing one
+  // socket path means each unload breaks the other's connection and the
+  // engine keeps re-evaluating the prompt because its KV cache was lost.
   const udsPath =
     udsOverride === undefined
       ? process.platform === "win32"
         ? ""
         : path.join(
             os.tmpdir(),
-            `llama-${typeof process.getuid === "function" ? process.getuid() : "user"}`,
+            `lama-${typeof process.getuid === "function" ? process.getuid() : "user"}`,
             "llama.sock",
           )
       : udsOverride.trim() === ""

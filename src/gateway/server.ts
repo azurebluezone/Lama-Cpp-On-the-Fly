@@ -567,6 +567,38 @@ async function forwardStream(
   base: Record<string, string>,
 ): Promise<void> {
   const transport = engineTransport(ctx);
+
+  // A repeated streaming request is replayed from the cache. A client that
+  // asks the same question twice should not pay for the engine twice, and the
+  // frames are recorded on the way through so the replay is byte-identical.
+  const streamKey = cacheKeyFor(body, protocol);
+  if (streamKey && ctx.cache) {
+    const cached = ctx.cache.get(streamKey);
+    const frames = cached && typeof cached.value === "object" && cached.value !== null
+      ? (cached.value as { frames?: string[] }).frames
+      : undefined;
+    if (frames && frames.length > 0) {
+      const payload = frames.join("");
+      res.writeHead(200, {
+        ...base,
+        "content-type": "text/event-stream; charset=utf-8",
+        "cache-control": "no-cache, no-transform",
+        connection: "keep-alive",
+        "x-accel-buffering": "no",
+        "x-lama-cache": "hit",
+      });
+      res.end(payload);
+      logRequest(ctx, req, new URL(req.url ?? "/", "http://gateway.local"), body, 200, "", started, protocol, {
+        session,
+        transportProtocol: engineProtocol(ctx),
+        grammar: grammarOf(body),
+        cacheHit: true,
+        stream: 1,
+      });
+      return;
+    }
+  }
+
   let upstream: http.IncomingMessage;
   try {
     upstream = await openStream(transport, urlPath, {
@@ -600,6 +632,7 @@ async function forwardStream(
   });
 
   const tap = createSseTap(protocol);
+  const frames: string[] = [];
   let bytes = 0;
   let firstTokenMs: number | null = null;
   let ended = false;
@@ -624,6 +657,9 @@ async function forwardStream(
   upstream.on("data", (chunk: string) => {
     if (firstTokenMs === null) firstTokenMs = Date.now() - started;
     bytes += Buffer.byteLength(chunk);
+    // Keep the frames so an identical follow-up can be replayed without the
+    // engine. The cap keeps one long answer from filling the cache.
+    if (frames.length < 2000) frames.push(chunk);
     if (protocol !== "other") tap.push(chunk);
   });
   upstream.on("error", () => {
@@ -631,6 +667,9 @@ async function forwardStream(
   });
   upstream.on("end", () => {
     ended = true;
+    if (streamKey && ctx.cache && status >= 200 && status < 300 && frames.length > 0) {
+      ctx.cache.set(streamKey, { frames });
+    }
     logStream(status);
   });
   res.on("close", () => {
