@@ -167,7 +167,7 @@
         "capabilities": [
           "completion"
         ],
-        "tool_reliability": "low — use the JSON parser fallback, never assume tool calls"
+        "tool_reliability": "low \u2014 use the JSON parser fallback, never assume tool calls"
       }
     },
     {
@@ -187,7 +187,7 @@
         "capabilities": [
           "completion"
         ],
-        "tool_reliability": "unknown — verify with the parser before trusting"
+        "tool_reliability": "unknown \u2014 verify with the parser before trusting"
       }
     },
     {
@@ -213,7 +213,7 @@
         "capabilities": [
           "completion"
         ],
-        "tool_reliability": "unknown — verify with the parser before trusting"
+        "tool_reliability": "unknown \u2014 verify with the parser before trusting"
       }
     },
     {
@@ -221,8 +221,8 @@
       "name": "DeepSeek-V4-Pro (Qwen3.5 4B)",
       "model_id": "deepseek-v4-pro",
       "file": "DeepSeek-V4-Pro.gguf",
-      "context": 4096,
-      "max_tokens": 1024,
+      "context": 16384,
+      "max_tokens": 2048,
       "temperature": 0.2,
       "quant": "Q2_K",
       "load_mode": "mmap",
@@ -237,7 +237,7 @@
         "capabilities": [
           "completion"
         ],
-        "tool_reliability": "unknown — verify with the parser before trusting"
+        "tool_reliability": "unknown \u2014 verify with the parser before trusting"
       }
     },
     {
@@ -258,7 +258,7 @@
           "completion",
           "vision"
         ],
-        "tool_reliability": "unknown — verify with the parser before trusting"
+        "tool_reliability": "unknown \u2014 verify with the parser before trusting"
       }
     }
   ]
